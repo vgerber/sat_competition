@@ -1,0 +1,3 @@
+numpy
+peewee
+reprobench[client,server,psmon,analytics]==0.10.0

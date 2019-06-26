@@ -1,0 +1,75 @@
+title: sudoku-sat
+description: Sudoku SAT
+
+steps:
+  run:
+    - module: reprobench.executors.PsmonExecutor
+    - module: sudoku.validate.SudokuValidator
+      config:
+        check_consistency: true
+  analysis:
+    - module: reprobench.statistics.tables.RunSummaryTable
+      config:
+        output: statistics/summary.csv
+    - module: sudoku.validate.SudokuVerdictTable
+      config:
+        output: statistics/verdict.csv
+
+observers:
+  - module: reprobench.executors.RunStatisticObserver
+  - module: sudoku.validate.SudokuObserver
+
+tasks:
+  sudoku:
+    type: file
+    path: ./instances
+    patterns: |
+      *.txt
+
+# You can tune the limits
+
+limits:
+  time: 180 # s
+  memory: 4096 # mb
+
+# You will probably want to change the solver configuration below
+tools:
+  team1:
+    # The module refers to the class MySolver in `my_solver/__init__.py`.
+    # Change accordingly if the directory is renamed.
+    module: my_solver.MySudokuSolver
+    parameters:
+      clasp:
+        solver: clasp
+  # # Uncomment and modify to add more solvers
+  # alternative_implementation:
+  #   module: my_solver.AnotherImplementation # or other_solver.Solver, etc.
+  #   parameters:
+  #     riss:
+  #       solver: riss
+  #     glucose:
+  #       solver: glucose
+# ----
+#        path: ./env/share/bin/clasp
+#        download:
+#            binary:
+#                universal: https://github.com/potassco/clingo/releases/download/v5.3.0/clingo-5.3.0-$OS.tar.gz
+#                #linux-x86_64
+#                #macos-x86_64
+#                #win64
+#      riss:
+#        solver: riss
+##        download:
+##            source:
+##                linux-x86_64: https://github.com/nmanthey/riss-solver/archive/v7.0.0.tar.gz
+##                build:
+##                    type: cmake
+##                    path: TODO
+#      glucose:
+#        solver: glucose
+##        download:
+##            source:
+##                linux-x86_64: https://www.labri.fr/perso/lsimon/downloads/softwares/glucose-syrup-4.1.tgz
+##                build:
+##                    type: make
+##                    path: TODO
