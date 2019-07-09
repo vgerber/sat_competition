@@ -13,14 +13,17 @@ class MySudokuSolver(ExecutableTool):
     name = "My Sudoku Solver"
 
     # TODO: change this to your solver executable
-    path = os.path.join(DIR, "my_solver.sh")
+    path = os.path.join(DIR, "build/solver")
 
     @classmethod
     def setup(cls):
         super().setup()
         # # TODO: add setup as needed (compiling etc.)
-        # # for example you can use subprocess to execute GNU Make:s
-        # subprocess.run(["make"], cwd=DIR)
+        # # for example you can use subprocess to execute GNU Make:
+        build_path = os.path.join(DIR, "build")
+        subprocess.run(["mkdir", "build"], cwd=DIR)
+        subprocess.run(["cmake", ".."], cwd=build_path)
+        subprocess.run(["make"], cwd=build_path)
 
     def get_cmdline(self):
         # TODO: change how your solver is executed against a task.

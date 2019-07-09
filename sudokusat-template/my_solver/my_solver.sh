@@ -10,14 +10,19 @@
 SATSOLVER=$1
 TASK=$2
 
+ls -l
+
+#python sudoku_encoder.py
+
 # Simulate work
-sleep .1
->&2 echo "running $0 $*"
-filename="$(basename $2)"
-echo $filename
-if [ $filename == "bsp-sudoku1.txt" ]; then
-    cat $(dirname $2)/$(basename -s .txt $2).sol
-fi
+#sleep .1
+#>&2 echo "test running $0 $*"
+#filename="$(basename $2)"
+#echo "Solver=" $1
+#echo $filename
+#if [ $filename == "bsp-sudoku1.txt" ]; then
+#    cat $(dirname $2)/$(basename -s .txt $2).sol
+#fi
 
 
->&2 echo "done!"
+#>&2 echo "done!"
