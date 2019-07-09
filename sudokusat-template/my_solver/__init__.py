@@ -18,15 +18,13 @@ class MySudokuSolver(ExecutableTool):
     @classmethod
     def setup(cls):
         super().setup()
-        # # TODO: add setup as needed (compiling etc.)
-        # # for example you can use subprocess to execute GNU Make:
+        
         build_path = os.path.join(DIR, "build")
         subprocess.run(["mkdir", "build"], cwd=DIR)
         subprocess.run(["cmake", ".."], cwd=build_path)
         subprocess.run(["make"], cwd=build_path)
 
     def get_cmdline(self):
-        # TODO: change how your solver is executed against a task.
         # - `self.path` is as defined above
         # - `self.task` contains the path for the sudoku instance
         # - `self.parameters` contains the parameter for the run,
@@ -46,6 +44,4 @@ class MySudokuSolver(ExecutableTool):
         if not super().is_ready():
             return False
 
-        # TODO: maybe check if your solver has already been compiled
-        #       by checking the target executable?
         return Path(cls.path).is_file()

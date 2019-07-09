@@ -8,13 +8,16 @@
 struct Sudoku {
     std::string parameters = "";
     int * field;
+    unsigned int blockSize = 0;
     unsigned int size = 0;
     unsigned int numberLength = 0;
     bool * columnValues;
     bool * rowValues;
     bool * blockValues;
+    
+    bool isCellValueSet(int x, int y) const;
 
-    bool hasValueSatisfied(int x, int y, int value);
+    bool isValueSatisfied(int x, int y, int value, bool checkBlock = true, bool checkColumn = true, bool checkRow = true) const;
 
     void print();
 
@@ -90,7 +93,7 @@ int main(int argc, char **argv) {
     //auto cnfPath = argv[3];
     
     Sudoku sudoku = readSudoku(argv[2]);
-    if(sudoku.size <= 300) {
+    if(sudoku.size <= 9 || true) {
         encodeSudoku(sudoku);
         solve(argv[1]);
         parseSolution(argv[1], sudoku);
@@ -126,6 +129,7 @@ Sudoku readSudoku(const char * path) {
                                 std::string fieldSize = sizeStr.substr(0, i);
                                 sudoku.numberLength = fieldSize.size();
                                 sudoku.size = std::stoi(fieldSize);
+                                sudoku.blockSize = sqrt(sudoku.size);
                                 sudoku.field = new int[sudoku.size * sudoku.size];
                                 sudoku.columnValues = new bool[sudoku.size * sudoku.size];
                                 sudoku.rowValues    = new bool[sudoku.size * sudoku.size];
@@ -156,6 +160,9 @@ Sudoku readSudoku(const char * path) {
                             sudoku.field[column + sudoku.size * row] = value;
                             sudoku.columnValues[value-1 + column * sudoku.size] = true;
                             sudoku.rowValues[value-1 + row * sudoku.size] = true;
+                            int blockX = column / sudoku.blockSize;
+                            int blockY = row / sudoku.blockSize;
+                            sudoku.blockValues[value-1 + (blockX * sudoku.size) + (blockY * sudoku.size * sudoku.blockSize)] = true;
 
                         }
                         lineIndex += sudoku.numberLength + 1;
@@ -173,7 +180,7 @@ Sudoku readSudoku(const char * path) {
 }
 
 void encodeSudoku(const Sudoku &sudoku) {
-        std::string cnf = "";
+    std::string cnf = "";
 
     int gridSize = sudoku.size;
     int blockSize = sqrt(gridSize);
@@ -184,21 +191,37 @@ void encodeSudoku(const Sudoku &sudoku) {
     //definedness
     for(int x = 1; x <= gridSize; x++) {
         for(int y = 1; y <= gridSize; y++) {
-            for(int v = 1; v <= gridSize; v++) {
-                cnf += valueToLiteral(sudoku, x, y, v) + " ";
-                clauses++;
+            //prevent adding predifined cells
+            if(!sudoku.isCellValueSet(x, y)) {
+                int terms = 0;
+                for(int v = 1; v <= gridSize; v++) {
+                    //prevent add already set values 
+                    if(!sudoku.isValueSatisfied(x, y, v)) {
+                        cnf += valueToLiteral(sudoku, x, y, v) + " ";
+                        terms++;
+                    }                    
+                }
+                if(terms > 0) {
+                    cnf += "0\n";
+                    clauses++;
+                }
             }
-            cnf += "0\n";
         }
     }
 
     //uniqueness of cells
     for(int x = 1; x <= gridSize; x++) {
         for(int y = 1; y <= gridSize; y++) {
-            for(int v = 1; v <= gridSize-1; v++) {
-                for(int w = v + 1; w <= gridSize; w++) {
-                    cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku, x, y, w, false) + " 0\n";
-                    clauses++;
+            //ignore predfined cells
+            if(!sudoku.isCellValueSet(x, y)) {
+                for(int v = 1; v <= gridSize-1; v++) {
+                    for(int w = v + 1; w <= gridSize; w++) {
+                        //only add possible values
+                        if(!sudoku.isValueSatisfied(x, y, v) && !sudoku.isValueSatisfied(x, y, w)) {
+                            cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku, x, y, w, false) + " 0\n";
+                            clauses++;
+                        }
+                    }
                 }
             }
         }
@@ -208,9 +231,13 @@ void encodeSudoku(const Sudoku &sudoku) {
     for(int x = 1; x <= gridSize; x++) {
         for(int v = 1; v <= gridSize; v++) {
             for(int y = 1; y <= gridSize - 1; y++) {
-                for(int w = y + 1; w <= gridSize; w++) {
-                    cnf += valueToLiteral(sudoku ,x, y, v, false) + " " + valueToLiteral(sudoku ,x, w, v, false) + " 0\n";
-                    clauses++;
+                if(!sudoku.isCellValueSet(x, y)) {
+                    for(int w = y + 1; w <= gridSize; w++) {
+                        if(!sudoku.isValueSatisfied(x, y, v)) {
+                            cnf += valueToLiteral(sudoku ,x, y, v, false) + " " + valueToLiteral(sudoku ,x, w, v, false) + " 0\n";
+                            clauses++;
+                        }
+                    }
                 }
             }
         }
@@ -220,25 +247,37 @@ void encodeSudoku(const Sudoku &sudoku) {
     for(int y = 1; y <= gridSize; y++) {
         for(int v = 1; v <= gridSize; v++) {
             for(int x = 1; x <= gridSize - 1; x++) {
-                for(int w = x + 1; w <= gridSize; w++) {
-                    cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku ,w, y, v, false) + " 0\n";
-                    clauses++;
+                if(!sudoku.isCellValueSet(x, y)) {
+                    for(int w = x + 1; w <= gridSize; w++) {
+                        if(!sudoku.isValueSatisfied(x, y, v)) {
+                            cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku ,w, y, v, false) + " 0\n";
+                            clauses++;
+                        }
+                    }
                 }
             }
         }
     }
 
     //uniqueness of blocks
+    //block x loop
     for(int i = 0; i < blockSize; i++) {
+        //block y loop
         for(int j = 0; j < blockSize; j++) {
-            for(int v = 1; v <= gridSize; v++) {
+            //value guess loop
+            for(int v = 1; v <= gridSize; v++) {     
+                //global x coordinate loop
                 for(int x = blockSize * i + 1; x <= blockSize * i + blockSize; x++) {
-                    for(int y = blockSize * j + 1; y <= blockSize * j + blockSize; y++) {
+                    //global y coordinate loop
+                    for(int y = blockSize * j + 1; y <= blockSize * j + blockSize; y++) {                        
+                        //global ref x  loop
                         for(int w = blockSize * i + 1; w <= blockSize * i + blockSize; w++) {
+                            //global ref y loop
                             for(int k = blockSize * j + 1; k <= blockSize * j + blockSize; k++) { 
                                 if(x == w && y == k) {
                                     continue;
                                 }
+  
                                 cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku, w, k, v, false) + " 0\n";
                                 clauses++;
                             }
@@ -355,12 +394,24 @@ void parseSolution(std::string solver, Sudoku &sudoku) {
     }
 }
 
-bool Sudoku::hasValueSatisfied(int x, int y, int value) {
-    if(columnValues[value-1 + x * size]) {
+bool Sudoku::isCellValueSet(int x, int y) const {
+    return field[(x-1) + size * (y-1)] > 0;
+}
+
+bool Sudoku::isValueSatisfied(int x, int y, int value, bool checkBlock, bool checkColumn, bool checkRow) const {
+    if(checkColumn && columnValues[value-1 + (x-1) * size]) {
         return true;
     }
-    else if(rowValues[value-1 + y * size]) {
+    if(checkRow && rowValues[value-1 + (y-1) * size]) {
         return true;
+    }
+    if(checkBlock) {
+        int blockX = (x-1) / blockSize;
+        int blockY = (y-1) / blockSize;
+        if(blockValues[value-1 + (blockX * size) + (blockY * size * blockSize)]) {
+            std::cerr << value << " " << blockX << "," << blockY << std::endl;
+            return true;
+        }
     }
     return false;
 }
