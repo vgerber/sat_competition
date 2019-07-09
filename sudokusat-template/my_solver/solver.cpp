@@ -1,5 +1,6 @@
 #include <iostream>
 #include <stdlib.h>
+#include <cstring>
 #include <fstream>
 #include <math.h>
 
@@ -9,8 +10,15 @@ struct Sudoku {
     int * field;
     unsigned int size = 0;
     unsigned int numberLength = 0;
+    bool * columnValues;
+    bool * rowValues;
+    bool * blockValues;
+
+    bool hasValueSatisfied(int x, int y, int value);
 
     void print();
+
+    void free();
 };
 
 /**
@@ -82,11 +90,12 @@ int main(int argc, char **argv) {
     //auto cnfPath = argv[3];
     
     Sudoku sudoku = readSudoku(argv[2]);
-    if(sudoku.size <= 300) {
+    if(sudoku.size <= 16) {
         encodeSudoku(sudoku);
         solve(argv[1]);
         parseSolution(argv[1], sudoku);
         sudoku.print();
+        sudoku.free();
     }
     
     return 0;
@@ -118,6 +127,12 @@ Sudoku readSudoku(const char * path) {
                                 sudoku.numberLength = fieldSize.size();
                                 sudoku.size = std::stoi(fieldSize);
                                 sudoku.field = new int[sudoku.size * sudoku.size];
+                                sudoku.columnValues = new bool[sudoku.size * sudoku.size];
+                                sudoku.rowValues    = new bool[sudoku.size * sudoku.size];
+                                sudoku.blockValues  = new bool[sudoku.size * sudoku.size];
+                                std::memset(sudoku.columnValues, false, sizeof(bool) * sudoku.size * sudoku.size);
+                                std::memset(sudoku.rowValues,    false, sizeof(bool) * sudoku.size * sudoku.size);
+                                std::memset(sudoku.blockValues,  false, sizeof(bool) * sudoku.size * sudoku.size);
                                 blockSize = sqrt(sudoku.size);
                                 break;
                             }
@@ -137,7 +152,11 @@ Sudoku readSudoku(const char * path) {
                             sudoku.field[column + sudoku.size * row] = 0;
                         }
                         else { 
-                            sudoku.field[column + sudoku.size * row] = std::stoi(line.substr(lineIndex, sudoku.numberLength));
+                            int value = std::stoi(line.substr(lineIndex, sudoku.numberLength));
+                            sudoku.field[column + sudoku.size * row] = value;
+                            sudoku.columnValues[value-1 + column * sudoku.size] = true;
+                            sudoku.rowValues[value-1 + row * sudoku.size] = true;
+
                         }
                         lineIndex += sudoku.numberLength + 1;
                         column++;
@@ -160,7 +179,7 @@ void encodeSudoku(const Sudoku &sudoku) {
     int blockSize = sqrt(gridSize);
 
     int clauses = 0;
-    int variables = std::stoi(std::to_string(gridSize) + std::to_string(gridSize) + std::to_string(gridSize));
+    int variables = pow(gridSize, 3);
 
     //definedness
     for(int x = 1; x <= gridSize; x++) {
@@ -254,7 +273,7 @@ void encodeSudoku(const Sudoku &sudoku) {
 
 std::string valueToLiteral(const Sudoku &sudoku, int x, int y, int v, bool isTrue) {
     std::string negate = isTrue ? "" : "-";
-    int value = (y-1) * pow(sudoku.size, 2) + ((x-1) * sudoku.size) + v;
+    int value = (y-1) * sudoku.size * sudoku.size + ((x-1) * sudoku.size) + v;
     return negate + std::to_string(value);
 }
 
@@ -262,7 +281,7 @@ void literalToValue(const Sudoku &sudoku, int &x, int &y, int &v, int value) {
     //convert to zero based indexing
     value--;
 
-    int rowLength = pow(sudoku.size, 2);
+    int rowLength = sudoku.size * sudoku.size;
     for(y = 0; y < sudoku.size; y++) {
         if((y+1) * rowLength > value) {
             value -= y * rowLength;
@@ -323,12 +342,7 @@ void parseSolution(std::string solver, Sudoku &sudoku) {
                                         int x, y, v;
                                         literalToValue(sudoku, x, y, v, value);
                                         int fieldIndex = x + y * sudoku.size;
-                                        if(fieldIndex < pow(sudoku.size, 2)) {
-                                            sudoku.field[fieldIndex] = v;
-                                        }
-                                        else {
-                                            std::cerr << "Index out of Bounds: " << fieldIndex << std::endl;
-                                        }
+                                        sudoku.field[fieldIndex] = v;
                                     }
                                 }
                             }
@@ -339,6 +353,16 @@ void parseSolution(std::string solver, Sudoku &sudoku) {
         }
         solutionFile.close();
     }
+}
+
+bool Sudoku::hasValueSatisfied(int x, int y, int value) {
+    if(columnValues[value-1 + x * size]) {
+        return true;
+    }
+    else if(rowValues[value-1 + y * size]) {
+        return true;
+    }
+    return false;
 }
 
 void Sudoku::print() {
@@ -365,13 +389,20 @@ void Sudoku::print() {
         }
         std::cout << std::endl;
         if(y == size-1) {
-        for(int blockIndex = 0; blockIndex < blockSize; blockIndex++) {
-            std::cout << "+" << std::string(blockSize * (numberLength+1) + 1, '-');
-            if(blockIndex == blockSize-1) {
-                std::cout << "+" << std::endl;
+            for(int blockIndex = 0; blockIndex < blockSize; blockIndex++) {
+                std::cout << "+" << std::string(blockSize * (numberLength+1) + 1, '-');
+                if(blockIndex == blockSize-1) {
+                    std::cout << "+" << std::endl;
+                }
             }
         }
     }
-    }
 
+}
+
+void Sudoku::free() {
+    delete[] field;
+    delete[] columnValues;
+    delete[] rowValues;
+    delete[] blockValues;
 }
