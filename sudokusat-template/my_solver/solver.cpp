@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
     //auto cnfPath = argv[3];
     
     Sudoku sudoku = readSudoku(argv[2]);
-    if(sudoku.size <= 16) {
+    if(sudoku.size <= 300) {
         encodeSudoku(sudoku);
         solve(argv[1]);
         parseSolution(argv[1], sudoku);
