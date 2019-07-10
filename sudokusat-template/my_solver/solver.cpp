@@ -3,6 +3,7 @@
 #include <cstring>
 #include <fstream>
 #include <math.h>
+#include <ctime>
 
 
 struct Sudoku {
@@ -93,7 +94,7 @@ int main(int argc, char **argv) {
     //auto cnfPath = argv[3];
     
     Sudoku sudoku = readSudoku(argv[2]);
-    if(sudoku.size <= 16 || true) {
+    if(sudoku.size == 100) {
         encodeSudoku(sudoku);
         solve(argv[1]);
         parseSolution(argv[1], sudoku);
@@ -188,6 +189,8 @@ void encodeSudoku(const Sudoku &sudoku) {
     int clauses = 0;
     int variables = pow(gridSize, 3);
 
+    clock_t startTime = clock();
+    int startClauses = 0;
     //definedness
     for(int x = 1; x <= gridSize; x++) {
         for(int y = 1; y <= gridSize; y++) {
@@ -208,6 +211,9 @@ void encodeSudoku(const Sudoku &sudoku) {
             }
         }
     }
+    std::cerr << "Def " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << (clauses - startClauses) << " Clauses" << std::endl;
+    startTime = clock(); 
+    startClauses = clauses;
 
     //uniqueness of cells
     for(int x = 1; x <= gridSize; x++) {
@@ -215,26 +221,54 @@ void encodeSudoku(const Sudoku &sudoku) {
             //ignore predfined cells
             if(!sudoku.isCellValueSet(x, y)) {
                 for(int v = 1; v <= gridSize-1; v++) {
-                    for(int w = v + 1; w <= gridSize; w++) {
-                        //only add possible values
-                        if(!sudoku.isValueSatisfied(x, y, v) && !sudoku.isValueSatisfied(x, y, w)) {
-                            cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku, x, y, w, false) + " 0\n";
-                            clauses++;
+                    //only add possible values
+                    //if(!sudoku.isValueSatisfied(x, y, v)) {
+                        for(int w = v + 1; w <= gridSize; w++) {
+                            //only add possible values
+                            //if(!sudoku.isValueSatisfied(x, y, w)) {
+                                cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku, x, y, w, false) + " 0\n";
+                                clauses++;
+                            //}
                         }
-                    }
+                    //}
                 }
             }
         }
     }
 
-    //uniqueness for rows
+    std::cerr << "UCell " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << (clauses - startClauses) << " Clauses" << std::endl;
+    startTime = clock();
+    startClauses = clauses;
+
+    //uniqueness for cols
     for(int x = 1; x <= gridSize; x++) {
         for(int v = 1; v <= gridSize; v++) {
-            for(int y = 1; y <= gridSize - 1; y++) {
-                if(!sudoku.isCellValueSet(x, y)) {
-                    for(int w = y + 1; w <= gridSize; w++) {
-                        if(!sudoku.isValueSatisfied(x, y, v)) {
-                            cnf += valueToLiteral(sudoku ,x, y, v, false) + " " + valueToLiteral(sudoku ,x, w, v, false) + " 0\n";
+            if(!sudoku.isValueSatisfied(x, 1, v, false, true, false)) {
+                for(int y = 1; y <= gridSize - 1; y++) {
+                    if(!sudoku.isCellValueSet(x, y)) {
+                        for(int w = y + 1; w <= gridSize; w++) {                            
+                            cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku, x, w, v, false) + " 0\n";
+                            clauses++;
+                        
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    std::cerr << "UCol " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << (clauses - startClauses) << " Clauses" << std::endl;
+    startTime = clock();
+    startClauses = clauses;
+
+    //uniqueness for rows
+    for(int y = 1; y <= gridSize; y++) {
+        for(int v = 1; v <= gridSize; v++) {
+            if(!sudoku.isValueSatisfied(1, y, v, false, false, true)) {
+                for(int x = 1; x <= gridSize - 1; x++) {
+                    if(!sudoku.isCellValueSet(x, y)) {
+                        for(int w = x + 1; w <= gridSize; w++) {                        
+                            cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku, w, y, v, false) + " 0\n";
                             clauses++;
                         }
                     }
@@ -243,21 +277,9 @@ void encodeSudoku(const Sudoku &sudoku) {
         }
     }
 
-    //uniqueness for columns
-    for(int y = 1; y <= gridSize; y++) {
-        for(int v = 1; v <= gridSize; v++) {
-            for(int x = 1; x <= gridSize - 1; x++) {
-                if(!sudoku.isCellValueSet(x, y)) {
-                    for(int w = x + 1; w <= gridSize; w++) {
-                        if(!sudoku.isValueSatisfied(x, y, v)) {
-                            cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku ,w, y, v, false) + " 0\n";
-                            clauses++;
-                        }
-                    }
-                }
-            }
-        }
-    }
+    std::cerr << "URow " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << (clauses - startClauses) << " Clauses" << std::endl;
+    startTime = clock();
+    startClauses = clauses;
 
     //uniqueness of blocks
     //block x loop
@@ -265,21 +287,26 @@ void encodeSudoku(const Sudoku &sudoku) {
         //block y loop
         for(int j = 0; j < blockSize; j++) {
             //value guess loop
-            for(int v = 1; v <= gridSize; v++) {     
-                //global x coordinate loop
-                for(int x = blockSize * i + 1; x <= blockSize * i + blockSize; x++) {
-                    //global y coordinate loop
-                    for(int y = blockSize * j + 1; y <= blockSize * j + blockSize; y++) {                        
-                        //global ref x  loop
-                        for(int w = blockSize * i + 1; w <= blockSize * i + blockSize; w++) {
-                            //global ref y loop
-                            for(int k = blockSize * j + 1; k <= blockSize * j + blockSize; k++) { 
-                                if(x == w && y == k) {
-                                    continue;
+            for(int v = 1; v <= gridSize; v++) {  
+                if(!sudoku.isValueSatisfied(blockSize * i + 1, blockSize * j + 1, v, true, false, false)) {
+                    //global x coordinate loop
+                    for(int x = blockSize * i + 1; x <= blockSize * i + blockSize; x++) {
+                        //global y coordinate loop
+                        for(int y = blockSize * j + 1; y <= blockSize * j + blockSize; y++) { 
+                            if(!sudoku.isCellValueSet(x, y)) {                       
+                                //global ref x  loop
+                                for(int w = x + 1; w <= blockSize * i + blockSize; w++) {
+                                    //global ref y loop
+                                    for(int k = y + 1; k <= blockSize * j + blockSize; k++) { 
+                                        if(x == w && y == k) {
+                                            continue;
+                                        }
+                                        if(!sudoku.isCellValueSet(w, k)) {
+                                            cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku, w, k, v, false) + " 0\n";
+                                            clauses++;
+                                        }
+                                    }
                                 }
-  
-                                cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku, w, k, v, false) + " 0\n";
-                                clauses++;
                             }
                         }
                     }
@@ -288,16 +315,24 @@ void encodeSudoku(const Sudoku &sudoku) {
         }
     }
 
+    std::cerr << "UBlock " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << (clauses - startClauses) << " Clauses" << std::endl;
+    startTime = clock();
+    startClauses = clauses;
+
     //predefined cells
     for(int x = 1; x <= gridSize; x++) {
         for(int y = 1; y <= gridSize; y++) {
             unsigned int value = sudoku.field[(y - 1) * gridSize + (x - 1)];
-            if(value) {
+            if(sudoku.isCellValueSet(x, y)) {
                 cnf += valueToLiteral(sudoku, x, y, value) + " 0\n";
                 clauses++;
             }
         }
     }
+
+    std::cerr << "PreDef " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << (clauses - startClauses) << " Clauses" << std::endl;
+    startTime = clock();
+    startClauses = clauses;
 
     std::fstream cnfFile = std::fstream("sudoku.cnf", std::fstream::out);
     if(cnfFile.good()) {
@@ -306,6 +341,9 @@ void encodeSudoku(const Sudoku &sudoku) {
         cnfFile << cnf;
     }
     cnfFile.close();
+
+    std::cerr << "Write " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s" << std::endl;
+    startTime = clock();
     
     
 }
@@ -384,7 +422,9 @@ void parseSolution(std::string solver, Sudoku &sudoku) {
                                         int x, y, v;
                                         literalToValue(sudoku, x, y, v, value);
                                         int fieldIndex = x + y * sudoku.size;
-                                        sudoku.field[fieldIndex] = v;
+                                        if(sudoku.field[fieldIndex] == 0) {
+                                            sudoku.field[fieldIndex] = v;
+                                        }
                                     }
                                 }
                             }
