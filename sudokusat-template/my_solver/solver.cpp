@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
     //auto cnfPath = argv[3];
     
     Sudoku sudoku = readSudoku(argv[2]);
-    if(sudoku.size <= 9 || true) {
+    if(sudoku.size <= 16 || true) {
         encodeSudoku(sudoku);
         solve(argv[1]);
         parseSolution(argv[1], sudoku);
@@ -340,10 +340,13 @@ void solve(std::string solver) {
     if(solver == "clasp") {
         system("clasp sudoku.cnf > sudoku.sol");
     }
+    if(solver == "riss") {
+        system("riss sudoku.cnf > sudoku.sol");
+    }
 }
 
 void parseSolution(std::string solver, Sudoku &sudoku) {
-    if(solver == "clasp") {
+    if(solver == "clasp" || solver == "riss") {
         std::fstream solutionFile("sudoku.sol", std::fstream::in);
 
         int lineCount = 0;
@@ -409,7 +412,6 @@ bool Sudoku::isValueSatisfied(int x, int y, int value, bool checkBlock, bool che
         int blockX = (x-1) / blockSize;
         int blockY = (y-1) / blockSize;
         if(blockValues[value-1 + (blockX * size) + (blockY * size * blockSize)]) {
-            std::cerr << value << " " << blockX << "," << blockY << std::endl;
             return true;
         }
     }
