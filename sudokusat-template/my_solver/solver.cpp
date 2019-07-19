@@ -4,7 +4,8 @@
 #include <fstream>
 #include <math.h>
 #include <ctime>
-
+#include <map>
+#include <vector>
 
 struct Sudoku {
     std::string parameters = "";
@@ -15,6 +16,8 @@ struct Sudoku {
     bool * columnValues;
     bool * rowValues;
     bool * blockValues;
+    std::vector<std::string> mappingLiteralIndexToValue;
+    std::map<std::string, int> mappingLiteralIndexToValueIndex;
 
     int get(int x, int y) const;
 
@@ -57,7 +60,7 @@ Sudoku readSudoku(const char * path);
  * 
  * @param sudoku 
  */
-void encodeSudoku(const Sudoku &sudoku);
+void encodeSudoku(Sudoku &sudoku);
 
 /**
  * @brief 
@@ -69,7 +72,7 @@ void encodeSudoku(const Sudoku &sudoku);
  * @param isTrue 
  * @return std::string 
  */
-std::string valueToLiteral(const Sudoku & sudoku, int x, int y, int v, bool isTrue = true);
+std::string valueToLiteral(Sudoku & sudoku, int x, int y, int v, bool isTrue = true);
 
 /**
  * @brief Convert sat literal to real x/y coordiantes and the value
@@ -80,7 +83,7 @@ std::string valueToLiteral(const Sudoku & sudoku, int x, int y, int v, bool isTr
  * @param v real value
  * @param value literal
  */
-void literalToValue(const Sudoku &sudoku, int &x, int &y, int &v, int value);
+void literalToValue(Sudoku &sudoku, int &x, int &y, int &v, int value);
 
 /**
  * @brief Calls the desired sat solver
@@ -103,18 +106,19 @@ void solve(std::string solver);
  */
 void parseSolution(std::string solver, Sudoku &sudoku);
 
-void validate(const Sudoku & sudoku);
+void validate(Sudoku & sudoku);
 
 int main(int argc, char **argv) {
     //auto cnfPath = argv[3];
     
     Sudoku sudoku = readSudoku(argv[2]);
-    if(sudoku.size <= 300) {
+    //debugging break
+    if(sudoku.size <= 16 || true) {
         //validate(sudoku);
         sudoku.reduceEasyFields();
         encodeSudoku(sudoku);
-        solve(argv[1]);
-        parseSolution(argv[1], sudoku);
+        //solve(argv[1]);
+        //parseSolution(argv[1], sudoku);
         sudoku.print();
         sudoku.free();
     }
@@ -197,7 +201,7 @@ Sudoku readSudoku(const char * path) {
     return sudoku;
 }
 
-void encodeSudoku(const Sudoku &sudoku) {
+void encodeSudoku(Sudoku &sudoku) {
     std::string cnf = "";
 
     int gridSize = sudoku.size;
@@ -211,7 +215,7 @@ void encodeSudoku(const Sudoku &sudoku) {
 
     
     //set all impossible values  to false
-    for(int x = 0; x < gridSize; x++) {
+    /*for(int x = 0; x < gridSize; x++) {
         for(int y = 0; y < gridSize; y++) {
             //predfined cells will be handelt in the predefined cell section
             if(!sudoku.isCellValueSet(x, y)) {
@@ -223,7 +227,7 @@ void encodeSudoku(const Sudoku &sudoku) {
                 }
             }
         }
-    }
+    }*/
     
 
     //definedness
@@ -406,7 +410,7 @@ void encodeSudoku(const Sudoku &sudoku) {
     std::fstream cnfFile = std::fstream("sudoku.cnf", std::fstream::out);
     if(cnfFile.good()) {
         cnfFile << "c (" + std::to_string(sudoku.size) + "x" + std::to_string(sudoku.size) + ")-Sudoku\n";
-        cnfFile << "p cnf " + std::to_string(variables) + " " + std::to_string(clauses) + "\n";
+        cnfFile << "p cnf " + std::to_string(sudoku.mappingLiteralIndexToValue.size()) + " " + std::to_string(clauses) + "\n";
         cnfFile << cnf;
     }
     cnfFile.close();
@@ -417,14 +421,31 @@ void encodeSudoku(const Sudoku &sudoku) {
     
 }
 
-std::string valueToLiteral(const Sudoku &sudoku, int x, int y, int v, bool isTrue) {
+std::string valueToLiteral(Sudoku &sudoku, int x, int y, int v, bool isTrue) {
     std::string negate = isTrue ? "" : "-";
     //add offset by 1 bc sat solver literals start by 1
-    int value = y * sudoku.size * sudoku.size + (x * sudoku.size) + v + 1;
-    return negate + std::to_string(value);
+    std::string value = std::to_string(y * sudoku.size * sudoku.size + (x * sudoku.size) + v + 1);
+
+    //add new values to our cnf mapping for compact encoding
+    int mappedValue = 0;
+    auto mapping = sudoku.mappingLiteralIndexToValueIndex.find(value);
+    if(mapping == sudoku.mappingLiteralIndexToValueIndex.end()) {
+        sudoku.mappingLiteralIndexToValue.push_back(value);
+        mappedValue = sudoku.mappingLiteralIndexToValue.size();
+        sudoku.mappingLiteralIndexToValueIndex[value] = mappedValue-1;
+    }
+    else {
+        mappedValue = sudoku.mappingLiteralIndexToValueIndex[value] + 1;
+    }
+
+    return negate + std::to_string(mappedValue);
 }
 
-void literalToValue(const Sudoku &sudoku, int &x, int &y, int &v, int value) {
+void literalToValue(Sudoku &sudoku, int &x, int &y, int &v, int value) {
+
+    //get value from compact encoding
+    value = std::stoi(sudoku.mappingLiteralIndexToValue[value-1]);
+
     value--;
 
     int rowLength = sudoku.size * sudoku.size;
@@ -496,7 +517,7 @@ void parseSolution(std::string solver, Sudoku &sudoku) {
                                         }
                                         else {
                                             if(sudoku.field[fieldIndex] != v) {
-                                                //std::cerr << "Warning Duplicate found " << x << "x" << y << " = "<< v << std::endl; 
+                                                std::cerr << "Warning Duplicate found " << x << "x" << y << " = "<< v << std::endl; 
                                             }
                                         }
                                     }
@@ -613,7 +634,7 @@ void Sudoku::free() {
     delete[] blockValues;
 }
 
-void validate(const Sudoku & sudoku) {
+void validate(Sudoku & sudoku) {
     bool conversionsValid = true;
     for(int x = 0; x < sudoku.size; x++) {
         for(int y = 0; y < sudoku.size; y++) {
