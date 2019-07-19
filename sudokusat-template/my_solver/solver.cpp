@@ -346,9 +346,10 @@ void encodeSudoku(const Sudoku &sudoku) {
                                 }
                                 if(!sudoku.isCellValueSet(w, k)) {
                                     for(int v = 0; v < gridSize; v++) {
-                                        if(!sudoku.isValueSatisfied(x, y, v) && !sudoku.isValueSatisfied(w, k, v))
-                                        cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku, w, k, v, false) + " 0\n";
-                                        clauses++;
+                                        if(!sudoku.isValueSatisfied(x, y, v) && !sudoku.isValueSatisfied(w, k, v)) {
+                                            cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku, w, k, v, false) + " 0\n";
+                                            clauses++;
+                                        }
                                     }
                                 }
                             }
@@ -375,12 +376,12 @@ void encodeSudoku(const Sudoku &sudoku) {
                 clauses++;
                 //for reading purpose just set all the other values to false
                 //otherwhise we will duplicated warnings
-                for(int v = 0; v < sudoku.size; v++) {
+                /*for(int v = 0; v < sudoku.size; v++) {
                     if(v != value) {
                         cnf += valueToLiteral(sudoku, x, y, v, false) + " 0\n";
                         clauses++;
                     }
-                }
+                }*/
             }
         }
     }
@@ -432,10 +433,10 @@ void literalToValue(const Sudoku &sudoku, int &x, int &y, int &v, int value) {
 
 void solve(std::string solver) {
     if(solver == "clasp") {
-        //system("clasp sudoku.cnf > sudoku.sol");
+        system("clasp sudoku.cnf > sudoku.sol");
     }
     if(solver == "riss") {
-        //system("riss sudoku.cnf > sudoku.sol");
+        system("riss sudoku.cnf > sudoku.sol");
     }
 }
 
