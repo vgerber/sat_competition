@@ -17,10 +17,21 @@ struct Sudoku {
     bool * blockValues;
 
     int get(int x, int y) const;
+
+    void set(int x, int y, int value);
     
     bool isCellValueSet(int x, int y) const;
 
     bool isValueSatisfied(int x, int y, int value, bool checkBlock = true, bool checkColumn = true, bool checkRow = true) const;
+
+    /**
+     * @brief Assign values to easy fields
+     * 
+     * Easy = can be found by simple looking in our lookup table
+     *        and searching depth = 1
+     * 
+     */
+    void reduceEasyFields();
 
     void print() const;
 
@@ -100,6 +111,7 @@ int main(int argc, char **argv) {
     Sudoku sudoku = readSudoku(argv[2]);
     if(sudoku.size <= 300) {
         //validate(sudoku);
+        sudoku.reduceEasyFields();
         encodeSudoku(sudoku);
         solve(argv[1]);
         parseSolution(argv[1], sudoku);
@@ -484,7 +496,7 @@ void parseSolution(std::string solver, Sudoku &sudoku) {
                                         }
                                         else {
                                             if(sudoku.field[fieldIndex] != v) {
-                                                std::cerr << "Warning Duplicate found " << x << "x" << y << " = "<< v << std::endl; 
+                                                //std::cerr << "Warning Duplicate found " << x << "x" << y << " = "<< v << std::endl; 
                                             }
                                         }
                                     }
@@ -503,8 +515,17 @@ int Sudoku::get(int x, int y) const {
     return field[x + y * size];
 }
 
+void Sudoku::set(int x, int y, int value) {
+    field[x + y * size] = value;
+    columnValues[value + x * size] = true;
+    rowValues[value + y * size] = true;
+    int blockX = x / blockSize;
+    int blockY = y / blockSize;
+    blockValues[value + (blockX * size) + (blockY * size * blockSize)] = true;
+}
+
 bool Sudoku::isCellValueSet(int x, int y) const {
-    return field[x + size * y] >= 0;
+    return get(x, y) >= 0;
 }
 
 bool Sudoku::isValueSatisfied(int x, int y, int value, bool checkBlock, bool checkColumn, bool checkRow) const {
@@ -522,6 +543,32 @@ bool Sudoku::isValueSatisfied(int x, int y, int value, bool checkBlock, bool che
         }
     }
     return false;
+}
+
+void Sudoku::reduceEasyFields() {
+    int optimizations = 0;
+    for(int x = 0; x < size; x++) {
+        for(int y = 0; y < size; y++) {
+            if(!isCellValueSet(x, y)) {
+                int possibilities = 0;
+                int possibleValue = 0;
+                for(int v = 0; v < size; v++) {
+                    if(!isValueSatisfied(x, y, v)) {
+                        possibilities++;
+                        possibleValue = v;
+                        if(possibilities > 1) {
+                            break;
+                        }
+                    }
+                }
+                if(possibilities == 1) {
+                    set(x, y, possibleValue);
+                    optimizations++;
+                }
+            }
+        }
+    }
+    std::cerr << "Optimizations: " << optimizations << std::endl;
 }
 
 void Sudoku::print() const {
