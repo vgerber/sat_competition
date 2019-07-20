@@ -6,6 +6,11 @@
 #include <ctime>
 #include <map>
 #include <vector>
+#include <csignal>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 struct Sudoku {
     std::string parameters = "";
@@ -32,14 +37,19 @@ struct Sudoku {
      * 
      * Easy = can be found by simple looking in our lookup table
      *        and searching depth = 1
-     * 
+     * @return int optimized fields
      */
-    void reduceEasyFields();
+    int reduceEasyFields();
 
     void print() const;
 
     void free();
 };
+
+void signalHandler(int signal) {    
+    killpg(getpgid(getpid()), SIGKILL);
+}
+
 
 /**
  * @brief Parses sudoku file
@@ -110,15 +120,27 @@ void validate(Sudoku & sudoku);
 
 int main(int argc, char **argv) {
     //auto cnfPath = argv[3];
+
+    signal(SIGTERM, signalHandler);
+    signal(SIGINT, signalHandler);
     
     Sudoku sudoku = readSudoku(argv[2]);
     //debugging break
-    if(sudoku.size <= 16 || true) {
+    if(sudoku.size > 0) {
         //validate(sudoku);
-        sudoku.reduceEasyFields();
-        encodeSudoku(sudoku);
-        //solve(argv[1]);
-        //parseSolution(argv[1], sudoku);
+
+        clock_t startTime = clock();
+        //reduce complexity by removing simple sudoku fields
+        while(sudoku.reduceEasyFields() > 0) {
+            if((double(clock() - startTime) / CLOCKS_PER_SEC) > 0.2) {
+                break;
+            }
+        }
+        std::cerr << "Optimization " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << std::endl;
+
+        encodeSudoku(sudoku);               
+        solve(argv[1]);  
+        parseSolution(argv[1], sudoku);
         sudoku.print();
         sudoku.free();
     }
@@ -465,8 +487,34 @@ void literalToValue(Sudoku &sudoku, int &x, int &y, int &v, int value) {
 }
 
 void solve(std::string solver) {
+    /*pid_t pid = fork(); 
+
+    if(pid == -1) {
+        printf("Failed to create solver process\n");
+    }
+    else if(pid == 0) {
+        //redirect stdout to sudoku.sol
+        int fd = open("sudoku.sol", O_CREAT | O_WRONLY);
+        dup2(fd, 1);
+
+        if(solver == "clasp") {
+            //system("clasp sudoku.cnf > sudoku.sol");
+            char *argv[] = {"clasp", "sudoku.cnf", 0 };
+            execvp(argv[0], argv);    
+        }
+        if(solver == "riss") {
+            //system("riss sudoku.cnf > sudoku.sol");
+            char *argv[] = {"riss", "sudoku.cnf", 0 };
+            execvp(argv[0], argv);   
+        }
+        exit(EXIT_SUCCESS);
+    }
+    else {
+        wait(NULL);
+    }*/
+
     if(solver == "clasp") {
-        system("clasp sudoku.cnf > sudoku.sol");
+       system("clasp sudoku.cnf > sudoku.sol"); 
     }
     if(solver == "riss") {
         system("riss sudoku.cnf > sudoku.sol");
@@ -566,7 +614,7 @@ bool Sudoku::isValueSatisfied(int x, int y, int value, bool checkBlock, bool che
     return false;
 }
 
-void Sudoku::reduceEasyFields() {
+int Sudoku::reduceEasyFields() {
     int optimizations = 0;
     for(int x = 0; x < size; x++) {
         for(int y = 0; y < size; y++) {
@@ -590,6 +638,7 @@ void Sudoku::reduceEasyFields() {
         }
     }
     std::cerr << "Optimizations: " << optimizations << std::endl;
+    return optimizations;
 }
 
 void Sudoku::print() const {

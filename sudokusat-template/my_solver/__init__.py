@@ -13,6 +13,7 @@ class MySudokuSolver(ExecutableTool):
     name = "My Sudoku Solver"
 
     # TODO: change this to your solver executable
+    #path = os.path.join(DIR, "build/solver")
     path = os.path.join(DIR, "build/solver")
 
     @classmethod
