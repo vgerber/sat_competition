@@ -319,6 +319,28 @@ void encodeSudoku(Sudoku &sudoku) {
     startTime = clock();
     startClauses = clauses;
 
+
+    //defindness for columns
+    for(int x = 0; x < gridSize; x++) {
+        for(int v = 0; v < gridSize; v++) {
+            int terms = 0;
+            for(int y = 0; y < gridSize; y++) {
+                if(!sudoku.isCellValueSet(x, y) && !sudoku.isValueSatisfied(x, y, v)) {
+                    cnf += valueToLiteral(sudoku, x, y, v) + " ";
+                    terms++;
+                }
+            }
+            if(terms > 0) {
+                cnf += "0\n";
+                clauses++;
+            }
+        }
+    }    
+
+    std::cerr << "DCol " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << (clauses - startClauses) << " Clauses" << std::endl;
+    startTime = clock();
+    startClauses = clauses;
+
     
     //uniqueness for rows
     for(int y = 0; y < gridSize; y++) {
@@ -342,6 +364,29 @@ void encodeSudoku(Sudoku &sudoku) {
     std::cerr << "URow " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << (clauses - startClauses) << " Clauses" << std::endl;
     startTime = clock();
     startClauses = clauses;
+
+
+    //defindness for rows
+    for(int y = 0; y < gridSize; y++) {
+        for(int v = 0; v < gridSize; v++) {
+            int terms = 0;
+            for(int x = 0; x < gridSize; x++) {
+                if(!sudoku.isCellValueSet(x, y) && !sudoku.isValueSatisfied(x, y, v)) {
+                    cnf += valueToLiteral(sudoku, x, y, v) + " ";
+                    terms++;
+                }
+            }
+            if(terms > 0) {
+                cnf += "0\n";
+                clauses++;
+            }
+        }
+    }    
+
+    std::cerr << "DRow " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << (clauses - startClauses) << " Clauses" << std::endl;
+    startTime = clock();
+    startClauses = clauses;
+
     
     //uniqueness of blocks
     //block x loop
@@ -375,8 +420,35 @@ void encodeSudoku(Sudoku &sudoku) {
             }
         }
     }
+
+    //defindness of blocks
+    //block x loop
+    for(int i = 0; i < blockSize; i++) {
+        //block y loop
+        for(int j = 0; j < blockSize; j++) {
+            //value in block loop
+            for(int v = 0; v < gridSize; v++) {
+                int terms = 0;
+                //global x coordinate loop
+                for(int x = blockSize * i; x < blockSize * i + blockSize; x++) {
+                    for(int y = blockSize * j; y < blockSize * j + blockSize; y++) { 
+                        if(!sudoku.isCellValueSet(x, y)) {
+                            if(!sudoku.isValueSatisfied(x, y, v)) {
+                                cnf += valueToLiteral(sudoku, x, y, v) + " ";
+                                terms++;
+                            }
+                        }
+                    }
+                }
+                if(terms > 0) {
+                    cnf += "0\n";
+                    clauses++;;
+                }
+            }
+        }
+    }
     
-    std::cerr << "UBlock " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << (clauses - startClauses) << " Clauses" << std::endl;
+    std::cerr << "DBlock " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << (clauses - startClauses) << " Clauses" << std::endl;
     
     startTime = clock();
     startClauses = clauses;
@@ -487,8 +559,8 @@ void parseSolution(std::string solver, Sudoku &sudoku) {
                 if(line.size() > 0) {
                     if(line[0] == 'v') {
                         bool valueStartFound  = false;
-                        int valueStartIndex = 0;
-                        for(int lineIndex = 2; lineIndex < line.size(); lineIndex++) {
+                        int valueStartIndex = 2;
+                        for(int lineIndex = valueStartIndex; lineIndex < line.size(); lineIndex++) {
                             if(line[lineIndex] != ' ' && !(lineIndex+1 == line.size())) {
                                 if(!valueStartFound) {
                                     valueStartFound = true;
@@ -507,6 +579,7 @@ void parseSolution(std::string solver, Sudoku &sudoku) {
                                     else {     
                                         valueStr = line.substr(valueStartIndex, lineIndex - valueStartIndex);                               
                                     }
+                                    std::cout << valueStr << std::endl;
                                     value = std::stoi(valueStr);
 
                                     if(value > 0) {
