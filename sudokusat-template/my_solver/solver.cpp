@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
         clock_t startTime = clock();
         //reduce complexity by removing simple sudoku fields
         while(sudoku.reduceEasyFields() > 0) {
-            if((double(clock() - startTime) / CLOCKS_PER_SEC) > 0.2) {
+            if((double(clock() - startTime) / CLOCKS_PER_SEC) > 0.1) {
                 break;
             }
         }
@@ -234,22 +234,6 @@ void encodeSudoku(Sudoku &sudoku) {
 
     clock_t startTime = clock();
     int startClauses = 0;
-
-    
-    //set all impossible values  to false
-    /*for(int x = 0; x < gridSize; x++) {
-        for(int y = 0; y < gridSize; y++) {
-            //predfined cells will be handelt in the predefined cell section
-            if(!sudoku.isCellValueSet(x, y)) {
-                for(int v = 0; v < gridSize; v++) {
-                    if(sudoku.isValueSatisfied(x, y, v)) {
-                        cnf += valueToLiteral(sudoku, x, y, v, false) + " 0\n";
-                        clauses++;
-                    }
-                }
-            }
-        }
-    }*/
     
 
     //definedness
@@ -287,9 +271,6 @@ void encodeSudoku(Sudoku &sudoku) {
                     //so only add [-v, -w] only if w and v are possible values on x,y
                     if(!sudoku.isValueSatisfied(x, y, v)) {
                         for(int w = v+1; w < gridSize; w++) {
-                            if(w == v) {
-                                continue;
-                            }
                             //only add possible values
                             if(!sudoku.isValueSatisfied(x, y, w)) {
                                 cnf += valueToLiteral(sudoku, x, y, v, false) + " " + valueToLiteral(sudoku, x, y, w, false) + " 0\n";
@@ -317,10 +298,7 @@ void encodeSudoku(Sudoku &sudoku) {
             if(!sudoku.isCellValueSet(x, y)) {
                 //for each test row
                 for(int w = y+1; w < gridSize; w++) {  
-                    //dont comapre the same cell  
-                    if(y == w) {
-                        continue;
-                    }  
+                    //dont compare the same cell  
                     if(!sudoku.isCellValueSet(x, w)) {   
                         //if every cell is not already predfined
                         //check each value and only add the uniqueness constraint 
@@ -400,31 +378,6 @@ void encodeSudoku(Sudoku &sudoku) {
     
     std::cerr << "UBlock " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << (clauses - startClauses) << " Clauses" << std::endl;
     
-    startTime = clock();
-    startClauses = clauses;
-    
-
-    //predefined cells
-    //check each cell if it is predefined and set the literal to true
-    for(int x = 0; x < gridSize; x++) {
-        for(int y = 0; y < gridSize; y++) {
-            unsigned int value = sudoku.get(x, y);
-            if(sudoku.isCellValueSet(x, y)) {
-                cnf += valueToLiteral(sudoku, x, y, value) + " 0\n";
-                clauses++;
-                //for reading purpose just set all the other values to false
-                //otherwhise we will duplicated warnings
-                /*for(int v = 0; v < sudoku.size; v++) {
-                    if(v != value) {
-                        cnf += valueToLiteral(sudoku, x, y, v, false) + " 0\n";
-                        clauses++;
-                    }
-                }*/
-            }
-        }
-    }
-
-    std::cerr << "PreDef " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << (clauses - startClauses) << " Clauses" << std::endl;
     startTime = clock();
     startClauses = clauses;
     
