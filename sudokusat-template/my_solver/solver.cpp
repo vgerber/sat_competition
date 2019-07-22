@@ -544,10 +544,13 @@ void solve(std::string solver) {
     if(solver == "riss") {
         system("riss sudoku.cnf > sudoku.sol");
     }
+    if(solver == "glucose")  {
+        system("glucose -model sudoku.cnf > sudoku.sol");
+    }
 }
 
 void parseSolution(std::string solver, Sudoku &sudoku) {
-    if(solver == "clasp" || solver == "riss") {
+    if(solver == "clasp" || solver == "riss" || solver == "glucose") {
         std::fstream solutionFile("sudoku.sol", std::fstream::in);
 
         int lineCount = 0;
@@ -579,7 +582,6 @@ void parseSolution(std::string solver, Sudoku &sudoku) {
                                     else {     
                                         valueStr = line.substr(valueStartIndex, lineIndex - valueStartIndex);                               
                                     }
-                                    std::cout << valueStr << std::endl;
                                     value = std::stoi(valueStr);
 
                                     if(value > 0) {

@@ -47,8 +47,8 @@ tools:
   # parameters:
       riss:
         solver: riss
-  #     glucose:
-  #       solver: glucose
+      glucose:
+        solver: glucose
 # ----
 #        path: ./env/share/bin/clasp
 #        download:
