@@ -132,9 +132,9 @@ int main(int argc, char **argv) {
         clock_t startTime = clock();
         //reduce complexity by removing simple sudoku fields
         while(sudoku.reduceEasyFields() > 0) {
-            if((double(clock() - startTime) / CLOCKS_PER_SEC) > 0.1) {
+            /*if((double(clock() - startTime) / CLOCKS_PER_SEC) > 0.1) {
                 break;
-            }
+            }*/
         }
         std::cerr << "Optimization " << (double(clock() - startTime) / CLOCKS_PER_SEC) << "s " << std::endl;
 
